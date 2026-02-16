@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Like badao page | Ultimate Booster</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts: Outfit -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getDatabase, ref, push, onChildAdded, query, limitToLast, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAqDJcQ3PD29_uGpuxGbAsSk2_hTaksfQ8",
+            authDomain: "like-badao-page.firebaseapp.com",
+            projectId: "like-badao-page",
+            storageBucket: "like-badao-page.firebasestorage.app",
+            messagingSenderId: "166682328812",
+            appId: "1:166682328812:web:ad84e8c968e31cc55aafc9"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        
+        // --- 1. SERVER TIME SYNC (To Keep Connection Alive) ---
+        const offsetRef = ref(db, ".info/serverTimeOffset");
+        onValue(offsetRef, (snap) => {
+            const offset = snap.val();
+            const estimatedServerTime = new Date().getTime() + offset;
+            console.log("Connected to Firebase Time Server: " + estimatedServerTime);
+        });
+
+        // --- 2. LEADERBOARD LOGIC ---
+        window.submitToFirebase = function(uid, region) {
+            push(ref(db, 'requests'), {
+                uid: uid, region: region, status: "Success", timestamp: Date.now()
+            });
+        };
+        
+        const recentRequests = query(ref(db, 'requests'), limitToLast(20));
+        onChildAdded(recentRequests, (snapshot) => {
+            const data = snapshot.val();
+            const tbody = document.getElementById('leaderboardBody');
+            const row = document.createElement('tr');
+            row.className = "bg-white/5 border-b border-white/5 animate-fade-in";
+            row.innerHTML = `<td class="px-4 py-3 font-mono text-brand-cyan">${data.uid}</td><td class="px-4 py-3">${data.region}</td><td class="px-4 py-3 font-bold text-emerald-400">Success</td>`;
+            tbody.insertBefore(row, tbody.firstChild);
+        });
+    </script>
+
+    <!-- Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Outfit', 'sans-serif'] },
+                    colors: {
+                        dark: { bg: '#020617', card: '#0f172a', border: '#1e293b' },
+                        brand: { primary: '#6366f1', secondary: '#ec4899', cyan: '#06b6d4' }
+                    },
+                    animation: { 'float': 'float 6s ease-in-out infinite', 'fade-in': 'fadeIn 0.5s ease-out' },
+                    keyframes: { fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } } }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { background-color: #020617; color: white; overflow-x: hidden; user-select: none; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #020617; }
+        ::-webkit-scrollbar-thumb { background: linear-gradient(to bottom, #6366f1, #ec4899); border-radius: 10px; }
+        .glass-nav { background: rgba(2, 6, 23, 0.95); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .glass-card { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 8px 32px 0 rgba(0,0,0,0.37); }
+        .input-premium { background: rgba(2, 6, 23, 0.5); border: 1px solid #334155; color: white; transition: all 0.3s ease; }
+        .input-premium:focus { border-color: #06b6d4; box-shadow: 0 0 15px rgba(6, 182, 212, 0.2); outline: none; }
+        
+        .ad-center { display: flex; justify-content: center; margin: 15px 0; overflow: hidden; }
+        .fixed-ad-left { position: fixed; top: 50%; left: 10px; transform: translateY(-50%); z-index: 40; display: none; }
+        .fixed-ad-right { position: fixed; top: 50%; right: 10px; transform: translateY(-50%); z-index: 40; display: none; }
+        @media (min-width: 1280px) { .fixed-ad-left, .fixed-ad-right { display: block; } }
+        .adsbox { position: absolute; left: -9999px; top: -9999px; width: 1px; height: 1px; }
+
+        /* REWARDED AD STYLES */
+        .rewarded-timer {
+            position: absolute; top: 20px; right: 20px;
+            background: rgba(0,0,0,0.8); border: 2px solid #ec4899;
+            color: white; padding: 8px 16px; border-radius: 50px;
+            font-weight: bold; font-size: 14px; z-index: 10001;
+        }
+        .rewarded-close {
+            position: absolute; top: 20px; right: 20px;
+            background: #ef4444; color: white; padding: 10px 20px;
+            border-radius: 50px; font-weight: bold; cursor: pointer;
+            z-index: 10002; display: none; box-shadow: 0 0 15px rgba(239,68,68,0.5);
+        }
+    </style>
+
+    <!-- HIGH LEVEL SECURITY SCRIPT -->
+    <script>
+        // 1. Disable Right Click
+        document.addEventListener('contextmenu', event => event.preventDefault());
+
+        // 2. Block Inspect Element Keys
+        document.onkeydown = function(e) {
+            if (e.keyCode == 123) return false; // F12
+            if (e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) return false; // Ctrl+Shift+I
+            if (e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) return false; // Ctrl+Shift+J
+            if (e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) return false; // Ctrl+U
+            if (e.ctrlKey && e.keyCode == 'S'.charCodeAt(0)) return false; // Ctrl+S
+        };
+
+        // 3. Debugger Trap
+        setInterval(function() {
+            const before = new Date().getTime();
+            debugger; 
+            const after = new Date().getTime();
+            if (after - before > 100) {
+                document.body.innerHTML = '<div style="background:#000;color:red;height:100vh;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:bold;">SECURITY ALERT: DEVTOOLS DETECTED</div>';
+            }
+        }, 1000);
+
+        // --- HISTORY TRAP (BACK BUTTON LOGIC) ---
+        window.history.pushState({page: "home"}, "", "");
+        window.onpopstate = function(event) {
+            const adModal = document.getElementById('rewardedAdModal');
+            if (adModal && !adModal.classList.contains('hidden')) {
+                closeRewardedAd(); // Just close ad
+                window.history.pushState({page: "home"}, "", ""); // Stay on page
+            } else {
+                window.history.pushState({page: "home"}, "", ""); // Prevent exit
+            }
+        };
+    </script>
+</head>
+<body id="mainBody" class="h-screen overflow-hidden">
+
+    <!-- 1. STRICT ANTI-ADBLOCK -->
+    <div id="adblockModal" class="fixed inset-0 z-[1000] bg-black hidden flex flex-col items-center justify-center p-6 text-center">
+        <i class="fa-solid fa-shield-virus text-6xl text-red-600 mb-4 animate-bounce"></i>
+        <h2 class="text-3xl font-bold text-red-500 mb-2">ADBLOCK DETECTED</h2>
+        <p class="text-gray-300 max-w-md mb-6">Security Check Failed. Please disable AdBlocker to access this tool.</p>
+        <button onclick="location.reload()" class="bg-gray-800 border border-white/20 px-6 py-2 rounded-lg hover:bg-white/10">I have disabled it</button>
+    </div>
+    <div class="adsbox" id="ads-check"></div>
+
+    <!-- 2. AGE VERIFICATION -->
+    <div id="ageModal" class="fixed inset-0 z-[900] bg-black flex flex-col items-center justify-center p-6 text-center">
+        <div class="w-24 h-24 mb-6 rounded-full bg-red-600/20 flex items-center justify-center border-2 border-red-600 animate-pulse">
+            <span class="text-4xl font-bold text-red-600">18+</span>
+        </div>
+        <h1 class="text-4xl md:text-5xl font-extrabold text-white mb-4 uppercase">Age Verification</h1>
+        <p class="text-gray-400 max-w-lg mb-8">Restricted content. Are you 18 or older?</p>
+        <button onclick="enterSite()" class="w-full max-w-md bg-brand-primary hover:bg-indigo-600 text-white font-bold py-4 rounded-xl shadow-lg transition-all">I AM 18+ (ENTER)</button>
+    </div>
+
+    <!-- 3. REWARDED AD OVERLAY (The "Video Ad" Style) -->
+    <div id="rewardedAdModal" class="fixed inset-0 z-[9999] bg-black hidden flex flex-col items-center justify-center">
+        <!-- Timer -->
+        <div id="adTimer" class="rewarded-timer">Wait <span id="timerCount">10</span>s</div>
+        
+        <!-- Close Button (Hidden initially) -->
+        <button id="adCloseBtn" class="rewarded-close" onclick="closeRewardedAd()">
+            <i class="fa-solid fa-xmark"></i> CLOSE AD
+        </button>
+
+        <!-- Content inside Ad Modal -->
+        <div class="text-center relative z-10 p-6">
+            <div class="w-20 h-20 border-4 border-brand-primary border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+            <h2 class="text-3xl font-bold text-white mb-2">Loading Reward...</h2>
+            <p class="text-gray-400">Please watch the ad to submit your request.</p>
+            
+            <!-- Popunder Script Container -->
+            <div id="popunderContainer"></div>
+        </div>
+
+        <!-- Ad Background Overlay -->
+        <div class="absolute inset-0 bg-dark-bg/95 z-0 pointer-events-none"></div>
+    </div>
+
+    <!-- 4. MAIN SITE CONTENT -->
+    <div id="siteContent" class="hidden relative">
+        
+        <!-- HIDDEN CONTAINER FOR SOCIAL BAR RELOADS -->
+        <div id="socialBarContainer"></div>
+
+        <!-- SIDE BANNERS -->
+        <div class="fixed-ad-left"><script type="text/javascript"> atOptions = { 'key' : '2bc682425eadd47bad0b4ef5c71f712b', 'format' : 'iframe', 'height' : 600, 'width' : 160, 'params' : {} }; </script><script type="text/javascript" src="https://www.highperformanceformat.com/2bc682425eadd47bad0b4ef5c71f712b/invoke.js"></script></div>
+        <div class="fixed-ad-right"><script type="text/javascript"> atOptions = { 'key' : '8212e64c2dc2ea91c2bd4a849e0c1d85', 'format' : 'iframe', 'height' : 300, 'width' : 160, 'params' : {} }; </script><script type="text/javascript" src="https://www.highperformanceformat.com/8212e64c2dc2ea91c2bd4a849e0c1d85/invoke.js"></script></div>
+
+        <!-- NAVBAR -->
+        <nav class="fixed w-full z-50 top-0 glass-nav h-20 flex items-center justify-between px-6">
+            <div class="flex items-center gap-2 cursor-pointer" onclick="location.reload()">
+                <i class="fa-solid fa-heart text-2xl text-brand-secondary animate-bounce"></i>
+                <span class="text-2xl font-extrabold tracking-tighter text-white">Like <span class="text-brand-primary">Badao</span></span>
+            </div>
+            <div class="hidden md:flex items-center gap-2 bg-white/5 px-3 py-1 rounded-full border border-white/10">
+                <span class="relative flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span></span>
+                <span class="text-xs font-bold text-gray-300">LIVE</span>
+            </div>
+        </nav>
+
+        <!-- TOP BANNER -->
+        <div class="pt-24 pb-4 ad-center"><script type="text/javascript"> atOptions = { 'key' : 'a3f9db7e05a934a88eb24b1d8e3034f4', 'format' : 'iframe', 'height' : 90, 'width' : 728, 'params' : {} }; </script><script type="text/javascript" src="https://www.highperformanceformat.com/a3f9db7e05a934a88eb24b1d8e3034f4/invoke.js"></script></div>
+
+        <section class="pb-10 relative">
+            <div class="max-w-7xl mx-auto px-6">
+                <div class="flex flex-col lg:flex-row items-start justify-center gap-10">
+                    
+                    <!-- FORM AREA -->
+                    <div class="w-full lg:w-5/12 relative z-10">
+                        <div class="glass-card p-6 md:p-8 rounded-3xl relative overflow-hidden animate-float">
+                            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-primary via-brand-cyan to-brand-secondary"></div>
+                            <h3 class="text-2xl font-bold text-white mb-6 text-center">Booster Setup</h3>
+                            
+                            <form onsubmit="handleDoneClick(event)" class="space-y-5">
+                                <div>
+                                    <label class="text-xs uppercase text-gray-400 font-bold ml-1">Player UID</label>
+                                    <input type="number" id="uidInput" required minlength="8" placeholder="Enter Full UID" class="input-premium w-full rounded-xl py-3 pl-4">
+                                </div>
+                                <div>
+                                    <label class="text-xs uppercase text-gray-400 font-bold ml-1">Region</label>
+                                    <select id="regionInput" class="input-premium w-full rounded-xl py-3 pl-4">
+                                        <option>India</option><option>Singapore</option><option>Brazil</option><option>Europe</option><option>North America</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="text-xs uppercase text-gray-400 font-bold ml-1">Likes</label>
+                                    <select id="likesInput" class="input-premium w-full rounded-xl py-3 pl-4">
+                                        <option value="100">100 Likes (Free)</option><option value="1000">1,000 Likes (Premium)</option><option value="10000">10,000 Likes (VIP)</option>
+                                    </select>
+                                </div>
+
+                                <button type="submit" id="submitBtn" class="w-full mt-4 bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-indigo-500 hover:to-pink-500 text-white font-bold py-4 rounded-xl shadow-lg transition hover:-translate-y-1">
+                                    DONE
+                                </button>
+                            </form>
+                            
+                            <!-- SMART LINK BUTTON -->
+                            <div class="mt-4">
+                                <button onclick="window.open('https://www.effectivegatecpm.com/dbyei8jm?key=18d875a7a46689fb1b109f9ec55048db', '_blank')" class="w-full border border-brand-cyan/50 text-brand-cyan hover:bg-brand-cyan/10 font-bold py-3 rounded-xl transition flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-gift"></i> VIEW REWARD
+                                </button>
+                            </div>
+
+                            <div class="mt-6 border-t border-white/10 pt-4">
+                                <script async="async" data-cfasync="false" src="https://pl28719364.effectivegatecpm.com/cb81b0e86b417ee0c1742367a23281a9/invoke.js"></script><div id="container-cb81b0e86b417ee0c1742367a23281a9"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT AREA (LEADERBOARD) -->
+                    <div class="w-full lg:w-6/12 flex flex-col gap-6">
+                        <div class="ad-center bg-dark-card rounded-xl border border-white/5 p-2">
+                            <script type="text/javascript"> atOptions = { 'key' : 'ab98da2573ef80420a406fc09edd98b1', 'format' : 'iframe', 'height' : 250, 'width' : 300, 'params' : {} }; </script><script type="text/javascript" src="https://www.highperformanceformat.com/ab98da2573ef80420a406fc09edd98b1/invoke.js"></script>
+                        </div>
+
+                        <!-- LEADERBOARD -->
+                        <div class="glass-card rounded-2xl p-6">
+                            <h3 class="text-xl font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-bolt text-brand-cyan"></i> Live Requests</h3>
+                            <div class="overflow-x-auto max-h-[400px] overflow-y-auto">
+                                <table class="w-full text-sm text-left text-gray-400">
+                                    <thead class="text-xs text-gray-200 uppercase bg-white/5 sticky top-0 backdrop-blur">
+                                        <tr><th class="px-4 py-3">UID</th><th class="px-4 py-3">Region</th><th class="px-4 py-3">Status</th></tr>
+                                    </thead>
+                                    <tbody id="leaderboardBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="ad-center my-8"><script type="text/javascript"> atOptions = { 'key' : 'a1f0f1b461e1ce41d9a4c3ded6b96031', 'format' : 'iframe', 'height' : 60, 'width' : 468, 'params' : {} }; </script><script type="text/javascript" src="https://www.highperformanceformat.com/a1f0f1b461e1ce41d9a4c3ded6b96031/invoke.js"></script></div>
+        <div class="fixed bottom-0 left-0 w-full z-30 bg-dark-bg/90 backdrop-blur border-t border-white/10 flex justify-center py-1 lg:hidden"><script type="text/javascript"> atOptions = { 'key' : '75be6f123daf2ee0b150c4c47dec7792', 'format' : 'iframe', 'height' : 50, 'width' : 320, 'params' : {} }; </script><script type="text/javascript" src="https://www.highperformanceformat.com/75be6f123daf2ee0b150c4c47dec7792/invoke.js"></script></div>
+        <div class="h-20"></div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="fixed inset-0 z-[100] bg-black/90 hidden flex items-center justify-center p-4 backdrop-blur-md">
+        <div class="bg-dark-card border border-green-500/50 p-8 rounded-2xl text-center max-w-sm w-full">
+            <div class="w-16 h-16 mx-auto bg-green-500/20 rounded-full flex items-center justify-center mb-4"><i class="fa-solid fa-check text-3xl text-green-500"></i></div>
+            <h3 class="text-xl font-bold text-white mb-2">Submission Successful!</h3>
+            <p class="text-gray-300 mb-6">Your request has been added to the queue.</p>
+            <button onclick="document.getElementById('successModal').classList.add('hidden')" class="bg-brand-primary hover:bg-indigo-600 px-6 py-2 rounded-lg font-bold w-full">Okay</button>
+        </div>
+    </div>
+
+    <!-- Failed Modal -->
+    <div id="failedModal" class="fixed inset-0 z-[100] bg-black/90 hidden flex items-center justify-center p-4 backdrop-blur-md">
+        <div class="bg-dark-card border border-red-500/50 p-8 rounded-2xl text-center max-w-sm w-full">
+            <div class="w-16 h-16 mx-auto bg-red-500/20 rounded-full flex items-center justify-center mb-4"><i class="fa-solid fa-xmark text-3xl text-red-500"></i></div>
+            <h3 class="text-xl font-bold text-white mb-2">Verification Failed!</h3>
+            <p class="text-gray-300 mb-6">You must wait for the ad timer to finish.</p>
+            <button onclick="document.getElementById('failedModal').classList.add('hidden')" class="bg-red-600 hover:bg-red-700 px-6 py-2 rounded-lg font-bold w-full">Try Again</button>
+        </div>
+    </div>
+
+    <!-- MAIN LOGIC -->
+    <script>
+        const TELEGRAM_LINK = "https://t.me/+JAK69yY6KrJlMTY1";
+        // New Script URL provided by user
+        const SOCIAL_BAR_URL = "https://walkingdrunkard.com/df/ba/29/dfba29548ded8f9cd0d3df3967cd45e9.js";
+        
+        // 1. Check Anti-Adblock
+        window.addEventListener('load', () => {
+            const adCheck = document.getElementById('ads-check');
+            if (adCheck.offsetHeight === 0 || window.getComputedStyle(adCheck).display === 'none') {
+                document.getElementById('adblockModal').classList.remove('hidden');
+                document.getElementById('ageModal').remove();
+                document.getElementById('siteContent').remove();
+            }
+        });
+
+        // 2. Enter Site & Start Ads
+        function enterSite() {
+            document.getElementById('ageModal').style.display = 'none';
+            document.getElementById('siteContent').classList.remove('hidden');
+            document.getElementById('mainBody').classList.remove('h-screen', 'overflow-hidden');
+            
+            // Inject Social Bar & Loop it every 5s
+            reloadSocialBar();
+            setInterval(reloadSocialBar, 5000);
+        }
+
+        // AGGRESSIVE AD REFRESH (Every 5 Seconds)
+        function reloadSocialBar() {
+            const container = document.getElementById('socialBarContainer');
+            // Empty container to clear previous script instance
+            container.innerHTML = '';
+            
+            // Create fresh script tag
+            const s = document.createElement('script');
+            // Add timestamp to query to bypass browser cache
+            s.src = SOCIAL_BAR_URL + '?v=' + new Date().getTime(); 
+            s.type = "text/javascript";
+            s.async = true;
+            
+            container.appendChild(s);
+            console.log("Ad Refreshed: " + new Date().toLocaleTimeString());
+        }
+
+        // 3. DONE CLICK LOGIC (Rewarded Ad Flow)
+        let currentUid, currentRegion;
+        let adCheckPassed = false;
+
+        function handleDoneClick(e) {
+            e.preventDefault();
+            const uid = document.getElementById('uidInput').value;
+            const region = document.getElementById('regionInput').value;
+            const likes = document.getElementById('likesInput').value;
+
+            if (!uid || uid.length < 8) { alert("Please enter valid UID"); return; }
+            if (likes === "1000" || likes === "10000") { window.location.href = TELEGRAM_LINK; return; }
+
+            currentUid = uid;
+            currentRegion = region;
+            adCheckPassed = false;
+
+            // Open Modal
+            const modal = document.getElementById('rewardedAdModal');
+            modal.classList.remove('hidden');
+
+            // Inject Popunder script (triggers ad)
+            const popContainer = document.getElementById('popunderContainer');
+            popContainer.innerHTML = ''; 
+            const popScript = document.createElement('script');
+            popScript.src = "https://walkingdrunkard.com/3b/51/20/3b51204bcf65b98d21568c40a1db8179.js";
+            popContainer.appendChild(popScript);
+
+            // Start 10s Timer
+            let timeLeft = 10;
+            const timerEl = document.getElementById('timerCount');
+            const closeBtn = document.getElementById('adCloseBtn');
+            const timerDiv = document.getElementById('adTimer');
+
+            timerEl.innerText = timeLeft;
+            closeBtn.style.display = 'none';
+            timerDiv.style.display = 'block';
+
+            const timer = setInterval(() => {
+                timeLeft--;
+                timerEl.innerText = timeLeft;
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    timerDiv.style.display = 'none';
+                    closeBtn.style.display = 'block';
+                    adCheckPassed = true;
+                }
+            }, 1000);
+
+            // Push History State (Traps back button to close ad only)
+            window.history.pushState({adOpen: true}, "", "");
+        }
+
+        function closeRewardedAd() {
+            const modal = document.getElementById('rewardedAdModal');
+            modal.classList.add('hidden');
+            
+            if (adCheckPassed) {
+                // Success - Save to DB
+                if(window.submitToFirebase) window.submitToFirebase(currentUid, currentRegion);
+                document.getElementById('successModal').classList.remove('hidden');
+            } else {
+                // Failed - Closed too early
+                document.getElementById('failedModal').classList.remove('hidden');
+            }
+        }
+    </script>
